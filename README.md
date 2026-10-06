@@ -1,6 +1,6 @@
 # LLM Security Gateway
 
-[![CI](https://github.com/dinesh-melimi/llm-security-gateway/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
+[![CI](https://github.com/Dinesh-Melimi/llm-security-gateway/actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
