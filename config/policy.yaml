@@ -1,0 +1,34 @@
+# LLM Security Gateway policy. API keys are stored only as SHA-256 digests.
+# Demo keys (for local use only): demo-key-alpha, demo-key-beta
+provider: mock            # mock | openai (OpenAI-compatible; set UPSTREAM_BASE_URL / UPSTREAM_API_KEY)
+
+teams:
+  data-science:
+    allowed_models: [gpt-4o-mini, llama-3-8b]
+    max_tokens: 1024
+    requests_per_minute: 30
+    blocked_topics: []
+  customer-support:
+    allowed_models: [gpt-4o-mini]
+    max_tokens: 512
+    requests_per_minute: 60
+    blocked_topics: [medical diagnosis, legal advice]
+
+clients:
+  - id: analytics-notebook
+    team: data-science
+    key_sha256: e49052cb77a35e3ebf86f7d184651dbf07b0fc8707d8ecb748fbf759b0a1d129   # demo-key-alpha
+  - id: support-chatbot
+    team: customer-support
+    key_sha256: f0151b84a66c52ae9d90f60e7a45a0ebc7fa3560a96f32700ab4ed9d36614a7e   # demo-key-beta
+
+guardrails:
+  injection_block_threshold: 0.7
+  redact_pii: true
+  block_secrets: true
+  canary_token: CANARY-7f3a9c
+  blocked_topics: [malware development, weapons synthesis]
+
+audit:
+  path: logs/audit.jsonl
+  store_raw_prompts: false   # privacy default: only SHA-256 of prompts is logged
