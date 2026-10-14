@@ -1,4 +1,4 @@
-.PHONY: install run test lint security eval report docker clean
+.PHONY: install run test lint security eval report assess docker clean
 
 install:
 	pip install -r requirements-dev.txt
@@ -27,3 +27,6 @@ docker:
 
 clean:
 	rm -rf .pytest_cache .ruff_cache logs __pycache__ */__pycache__
+
+assess:
+	python -m scripts.risk_assessment --log logs/audit.jsonl

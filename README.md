@@ -74,6 +74,12 @@ Real upstream: set `provider: openai` (or `GATEWAY_PROVIDER=openai`) plus `UPSTR
 
 Add a client key: `python -c "import hashlib;print(hashlib.sha256(b'NEW-KEY').hexdigest())"` and paste the digest into `config/policy.yaml`.
 
+## AI risk assessment report
+
+`make assess` (or `python -m scripts.risk_assessment --client "Acme Health" --out report.md`) turns the policy and audit log into a client-ready risk assessment: executive summary, findings rated Critical/High/Medium/Low, evidence, and a recommendation for each, mapped to the OWASP Top 10 for LLM Applications and NIST AI RMF.
+
+It checks configuration (raw prompt logging, secret blocking, PII redaction, injection threshold, token caps, topic policy) and runtime evidence (system prompt leaks, pasted secrets, injection attempts, unauthenticated calls, clients with a block rate over 10%). Use `--json` to feed it into a GRC tool or ticket.
+
 ## Detector evaluation (honest numbers)
 
 `python -m scripts.evaluate` on the 50-prompt hand-labeled set in `eval/injection_dataset.jsonl` (25 benign, 25 injection), threshold 0.7:
