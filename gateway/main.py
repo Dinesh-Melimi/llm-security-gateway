@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from .audit import AuditLogger
 from .auth import authenticate
 from .config import Settings, load_settings
-from .guardrails import injection, output, pii
+from .guardrails import exec_guard, injection, output, pii
 from .policy import PolicyViolation, check_request
 from .providers import Provider, get_provider
 from .ratelimit import SlidingWindowLimiter
@@ -47,7 +47,8 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
         return {"status": "ok", "provider": provider.name}
 
     @app.post("/v1/chat/completions")
-    async def chat(req: ChatRequest, request: Request, authorization: str | None = Header(default=None)):
+    async def chat(req: ChatRequest, request: Request, authorization: str | None = Header(default=None),
+                   x_output_sink: str | None = Header(default=None)):
         started = time.perf_counter()
         client = authenticate(authorization, settings)
         prompt_text = "\n".join(m.content for m in req.messages if m.role != "assistant")
@@ -103,6 +104,19 @@ def create_app(settings: Settings | None = None, provider: Provider | None = Non
         if verdict.canary_leak:
             eid = audit.log(**ctx, decision="blocked", reason="system_prompt_leak")
             return _error(502, "output_blocked", "response withheld: system prompt leakage", eid)
+
+        # Caller declares where the answer goes (shell, sql, python, html, markdown); check it for that sink.
+        if x_output_sink:
+            sink = x_output_sink.strip().lower()
+            if sink not in exec_guard.SINKS:
+                eid = audit.log(**ctx, decision="blocked", reason="bad_output_sink")
+                return _error(400, "bad_output_sink", f"X-Output-Sink must be one of {', '.join(exec_guard.SINKS)}", eid)
+            ev = exec_guard.check_output(verdict.text, sink)
+            if not ev.allowed:
+                eid = audit.log(**ctx, decision="blocked", reason="insecure_output", sink=sink,
+                                rules=[f.rule for f in ev.findings])
+                return _error(502, "insecure_output", f"response withheld: unsafe for {sink} "
+                              f"({', '.join(f.rule for f in ev.findings)})", eid)
 
         decision = "redacted" if (findings and settings.redact_pii) or verdict.pii_kinds else "allowed"
         eid = audit.log(**ctx, decision=decision, reason=None, injection_score=inj.score, rules=inj.matched,

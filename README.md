@@ -39,6 +39,8 @@ Any stage can short-circuit with a structured error and an `event_id` that match
 | Input guardrails | 13 weighted regex rules for injection/jailbreak, combined with noisy-OR scoring; Unicode NFKC + zero-width stripping |
 | PII / secrets | Email, phone, SSN format (with invalid-range filtering), credit cards (Luhn-validated), AWS access/secret keys, PEM private keys. PII is redacted; secrets block the request |
 | Output guardrails | Canary token in system prompt detects prompt leakage; PII in responses is redacted |
+| Execution guard | `X-Output-Sink: shell\|sql\|python\|html\|markdown` checks the answer for that sink before it is returned (29 rules: reverse shells, `curl \| sh`, DROP/DELETE without WHERE, stacked SQL, `eval`, `shell=True`, unsafe deserialization, `<script>`, markdown image exfiltration) |
+| Library (SDK) | `gateway.sdk`: `validate_prompt`, `guard_output`, `@guarded(sink=...)` for apps that call an LLM directly |
 | Rate limiting | Sliding-window per client, `429` + `Retry-After` |
 | Audit | JSONL, one event per decision; prompts stored as SHA-256 only unless `store_raw_prompts: true` |
 | Reporting | `scripts/usage_report.py` - per-client usage, blocks, detections, models |
@@ -73,6 +75,32 @@ docker build -t llm-security-gateway . && docker run -p 8080:8080 llm-security-g
 Real upstream: set `provider: openai` (or `GATEWAY_PROVIDER=openai`) plus `UPSTREAM_BASE_URL` and `UPSTREAM_API_KEY`. Works with OpenAI, vLLM, Ollama, LiteLLM, etc.
 
 Add a client key: `python -c "import hashlib;print(hashlib.sha256(b'NEW-KEY').hexdigest())"` and paste the digest into `config/policy.yaml`.
+
+## Use it as a library (no gateway)
+
+Teams that call a model directly can get the same checks in-process:
+
+```python
+from gateway.sdk import validate_prompt, guard_output, guarded, GuardrailError
+
+checked = validate_prompt(user_text)        # raises UnsafePrompt on injection or secrets; PII redacted
+sql = guard_output(llm_answer, sink="sql")  # raises InsecureOutput; returns the code block to run
+
+@guarded(sink="shell")
+def run_suggested(cmd: str): ...            # model output is checked before the function body runs
+```
+
+Every block names the rule and the reason (`SQL-02 DELETE/UPDATE with no WHERE clause`), so a developer can see what to fix. The SQL sink is read-only by default: anything other than `SELECT`/`WITH` is rejected.
+
+## Execution guard evaluation (honest numbers)
+
+`python -m scripts.evaluate_exec` on 39 hand-labeled model outputs across five sinks (`eval/exec_output_dataset.jsonl`), blocking at high severity:
+
+| TP | FP | TN | FN | Precision | Recall | F1 |
+|---|---|---|---|---|---|---|
+| 21 | 1 | 13 | 4 | 0.955 | 0.84 | 0.894 |
+
+Known misses, kept in the set on purpose: `UNION SELECT` (only medium), `find / -delete`, string-built `eval` via `getattr`, and tautology `OR 1=1`. The false positive is `sudo systemctl status`. Pattern rules are a first layer; the real fix for shell and SQL sinks is running model output with least privilege (read-only DB role, sandboxed shell).
 
 ## AI risk assessment report
 

@@ -1,4 +1,4 @@
-.PHONY: install run test lint security eval report assess docker clean
+.PHONY: install run test lint security eval eval-exec report assess docker clean
 
 install:
 	pip install -r requirements-dev.txt
@@ -30,3 +30,6 @@ clean:
 
 assess:
 	python -m scripts.risk_assessment --log logs/audit.jsonl
+
+eval-exec:
+	python -m scripts.evaluate_exec
