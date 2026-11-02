@@ -6,14 +6,15 @@ Maps gateway controls to the **OWASP Top 10 for LLM Applications (2025)** and th
 
 | OWASP ID | Risk | Gateway control | Code | Coverage |
 |---|---|---|---|---|
-| LLM01 | Prompt Injection | Scored heuristic rules (13), Unicode normalization, configurable block threshold | `gateway/guardrails/injection.py` | Partial - direct injection only; paraphrase and indirect injection can evade |
+| LLM01 | Prompt Injection | Direct: 18 scored rules over de-obfuscated views (homoglyph, leetspeak, spacing, base64). Indirect: RAG chunk scanner with document-specific rules, quarantine and spotlighting | `gateway/guardrails/injection.py`, `rag.py` | Partial - 98% on the regression set, 13% on held-out paraphrased attacks (`make redteam`) |
 | LLM02 | Sensitive Information Disclosure | Input PII redaction; secret blocking (AWS keys, private keys); output PII redaction | `gateway/guardrails/pii.py`, `output.py` | Partial - pattern-based, US formats |
 | LLM03 | Supply Chain | Model allow-list per team; pip-audit and bandit in CI; pinned dependency ranges | `gateway/policy.py`, `.github/workflows/ci.yml` | Partial |
 | LLM05 | Improper Output Handling | Output scanned and sanitized before returning to caller; sink-aware execution guard for shell, SQL, Python, HTML and markdown (`X-Output-Sink` header or `gateway.sdk.guard_output`) | `gateway/guardrails/output.py`, `exec_guard.py`, `gateway/sdk.py` | Partial - pattern-based (P 0.955 / R 0.84 on 39 labeled outputs); pair with least-privilege execution |
 | LLM06 | Excessive Agency | Gateway grants no tools; blocked-topic policy limits task scope | `gateway/policy.py` | Minimal - out of scope for a proxy |
 | LLM07 | System Prompt Leakage | Canary token injected into system prompt; responses containing it are withheld | `gateway/main.py`, `output.py` | Partial - verbatim leakage only |
 | LLM10 | Unbounded Consumption | Per-team max-token cap, per-client rate limiting, request size limits (100 messages, 100k chars) | `gateway/ratelimit.py`, `policy.py`, `main.py` | Good for single replica |
-| LLM04 / LLM08 / LLM09 | Data poisoning, vector/embedding weakness, misinformation | Not addressed (training/RAG-layer concerns) | - | None |
+| LLM08 | Vector and Embedding Weaknesses | Document ACLs enforced on retrieved chunks before they reach the prompt; poisoned chunks quarantined | `gateway/guardrails/rag.py`, `gateway/sdk.py` | Partial - access control is enforced at retrieval time only; no embedding-level defenses |
+| LLM04 / LLM09 | Data poisoning, misinformation | Not addressed (training-layer concerns) | - | None |
 
 ## NIST AI RMF 1.0
 
@@ -21,7 +22,7 @@ Maps gateway controls to the **OWASP Top 10 for LLM Applications (2025)** and th
 |---|---|---|
 | **Govern** | GV-1 policies and processes; GV-6 third-party risk | Policy-as-code in `config/policy.yaml` (who may use which model, for what); model allow-list governs third-party model use |
 | **Map** | MP-4 risks of third-party components; MP-5 impacts | Shadow-AI visibility: audit log + `usage_report.py` show which teams use which models and how often |
-| **Measure** | MS-2 evaluated for trustworthiness; MS-2.7 security and resilience; MS-3 tracking risks over time | `scripts/evaluate.py` reports precision/recall; CI enforces a quality floor; audit metrics (block rates, detections) tracked over time |
+| **Measure** | MS-2 evaluated for trustworthiness; MS-2.7 security and resilience; MS-3 tracking risks over time | `scripts/evaluate.py` reports precision/recall; `scripts/redteam.py` measures attack success rate by OWASP category, MITRE ATLAS technique and evasion technique on a regression set and a held-out set; CI enforces quality floors; audit metrics tracked over time |
 | **Manage** | MG-2 risk treatment; MG-3 third-party risk; MG-4 monitoring and response | Runtime blocking/redaction, rate limits, event IDs for incident triage, canary alerts for prompt leakage |
 
 ## Supporting security engineering controls

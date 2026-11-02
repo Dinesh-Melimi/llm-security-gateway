@@ -24,10 +24,12 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
       - name: SAST (bandit)
-        run: bandit -q -c pyproject.toml -r gateway scripts
+        run: bandit -q -c pyproject.toml -r gateway scripts redteam
       - name: Dependency audit (pip-audit)
         run: pip-audit -r requirements.txt
       - name: Tests (pytest)
         run: pytest -q
       - name: Detector evaluation
         run: python -m scripts.evaluate
+      - name: Red-team regression gate
+        run: python -m scripts.redteam --gate

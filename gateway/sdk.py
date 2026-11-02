@@ -10,13 +10,15 @@ three-line adoption path:
 
     @guarded(sink="shell")
     def run_suggested(cmd: str): ...           # first argument is checked before the call
+
+    ctx = guard_context(chunks, user_groups={"finance"})   # RAG: ACL filter + indirect injection scan
 """
 from __future__ import annotations
 
 import functools
 from dataclasses import dataclass
 
-from .guardrails import exec_guard, injection, pii
+from .guardrails import exec_guard, injection, pii, rag
 
 
 class GuardrailError(Exception):
@@ -77,3 +79,12 @@ def guarded(sink: str, allow_domains: set[str] | None = None, block_at: str = "h
             return fn(guard_output(payload, sink, allow_domains, block_at), *args, **kwargs)
         return wrapper
     return deco
+
+
+def guard_context(chunks: list[rag.Chunk], user_groups: set[str], threshold: float = 0.5) -> str:
+    """Filter retrieved chunks by ACL, quarantine injected ones, and return spotlighted context.
+
+    Use `rag.filter_context` directly if you need the per-chunk report.
+    """
+    report = rag.filter_context(chunks, user_groups, threshold)
+    return rag.spotlight(report.allowed)

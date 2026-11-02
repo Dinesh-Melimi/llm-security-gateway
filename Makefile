@@ -1,4 +1,4 @@
-.PHONY: install run test lint security eval eval-exec report assess docker clean
+.PHONY: install run test lint security eval eval-exec redteam report assess docker clean
 
 install:
 	pip install -r requirements-dev.txt
@@ -13,7 +13,7 @@ lint:
 	ruff check .
 
 security:
-	bandit -q -c pyproject.toml -r gateway scripts
+	bandit -q -c pyproject.toml -r gateway scripts redteam
 	pip-audit -r requirements.txt
 
 eval:
@@ -26,10 +26,13 @@ docker:
 	docker build -t llm-security-gateway .
 
 clean:
-	rm -rf .pytest_cache .ruff_cache logs __pycache__ */__pycache__
+	rm -rf .pytest_cache .ruff_cache logs reports __pycache__ */__pycache__
 
 assess:
 	python -m scripts.risk_assessment --log logs/audit.jsonl
 
 eval-exec:
 	python -m scripts.evaluate_exec
+
+redteam:
+	python -m scripts.redteam

@@ -10,6 +10,8 @@ htmlcov/
 logs/
 *.jsonl
 !eval/*.jsonl
+!redteam/*.jsonl
 dist/
 build/
 *.egg-info/
+reports/
